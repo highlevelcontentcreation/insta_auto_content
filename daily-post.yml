@@ -1,0 +1,36 @@
+name: Täglicher Instagram-Post
+
+on:
+  schedule:
+    # Läuft jeden Tag um 09:00 UTC (= 10:00 bzw. 11:00 Uhr deutscher Zeit,
+    # je nach Sommer-/Winterzeit). Zeit nach Wunsch anpassen.
+    - cron: "0 9 * * *"
+  workflow_dispatch: {}  # erlaubt manuelles Auslösen zum Testen
+
+permissions:
+  contents: write  # notwendig, damit der Bot das generierte Bild committen darf
+
+jobs:
+  post-to-instagram:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Abhängigkeiten installieren
+        run: pip install -r requirements.txt
+
+      - name: Skript ausführen
+        env:
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          GITHUB_REPOSITORY_RAW_BASE: https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python instagram_auto_poster.py
