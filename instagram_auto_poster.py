@@ -2,16 +2,19 @@
 """
 instagram_auto_poster.py
 
-Erstellt automatisch ein Motivations-Zitat-Bild und veröffentlicht es
-über die Instagram Graph API auf einem Instagram Business-Account.
+Erstellt automatisch ein Stoiker-Zitat-Bild (Marcus Aurelius, Seneca,
+Epiktet, ...) und veröffentlicht es über die Instagram Graph API auf
+einem Instagram Business-Account. Jedes Zitat wird nur EINMAL gepostet.
 
 Ablauf:
-1. Zufälliges Zitat aus quotes.json auswählen
+1. Zufälliges, noch nicht gepostetes Zitat von der stoic-quotes.com API holen
 2. Bild mit Zitat auf farbigem Hintergrund erzeugen (Pillow)
-3. Bild ins Repo committen & pushen (damit es über eine öffentliche
-   Raw-URL erreichbar ist -> Instagram braucht eine öffentliche Bild-URL)
-4. Über die Instagram Graph API einen Media-Container erstellen
-5. Media-Container veröffentlichen
+3. Zitat als "bereits gepostet" vermerken (posted_quotes.json)
+4. Bild + posted_quotes.json ins Repo committen & pushen (damit das Bild
+   über eine öffentliche Raw-URL erreichbar ist -> Instagram braucht
+   zwingend eine öffentliche Bild-URL)
+5. Über die Instagram Graph API einen Media-Container erstellen
+6. Media-Container veröffentlichen
 
 Benötigte Umgebungsvariablen (siehe SETUP.md):
 - IG_USER_ID       -> Instagram Business Account ID
@@ -37,8 +40,13 @@ from PIL import Image, ImageDraw, ImageFont
 # ---------------------------------------------------------------------------
 
 REPO_ROOT = Path(__file__).resolve().parent
-QUOTES_FILE = REPO_ROOT / "quotes.json"
+POSTED_QUOTES_FILE = REPO_ROOT / "posted_quotes.json"
+FALLBACK_QUOTES_FILE = REPO_ROOT / "quotes.json"  # falls die API mal nicht erreichbar ist
 IMAGES_DIR = REPO_ROOT / "images"
+
+STOIC_API_SINGLE = "https://stoic-quotes.com/api/quote"
+STOIC_API_BATCH = "https://stoic-quotes.com/api/quotes?num=100"
+MAX_FETCH_ATTEMPTS = 40  # so oft maximal ein neues, unverbrauchtes Zitat versucht wird
 
 IMAGE_SIZE = (1080, 1080)  # Instagram-Standardformat (quadratisch)
 BACKGROUND_COLORS = [
@@ -58,13 +66,74 @@ FONT_REGULAR_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 
 
 # ---------------------------------------------------------------------------
-# Schritt 1: Zitat auswählen
+# Schritt 1: Bereits gepostete Zitate laden & neues, unverbrauchtes Zitat holen
 # ---------------------------------------------------------------------------
 
-def choose_quote() -> dict:
-    with open(QUOTES_FILE, "r", encoding="utf-8") as f:
-        quotes = json.load(f)
-    return random.choice(quotes)
+def load_posted_quotes() -> set:
+    if not POSTED_QUOTES_FILE.exists():
+        return set()
+    with open(POSTED_QUOTES_FILE, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    return set(data)
+
+
+def save_posted_quotes(posted_texts: set) -> None:
+    with open(POSTED_QUOTES_FILE, "w", encoding="utf-8") as f:
+        json.dump(sorted(posted_texts), f, ensure_ascii=False, indent=2)
+
+
+def fetch_quote_from_api() -> dict:
+    response = requests.get(STOIC_API_SINGLE, timeout=15)
+    response.raise_for_status()
+    return response.json()
+
+
+def fetch_quote_batch_from_api() -> list:
+    response = requests.get(STOIC_API_BATCH, timeout=15)
+    response.raise_for_status()
+    return response.json()
+
+
+def choose_unused_quote(posted_texts: set) -> dict:
+    """Holt Zitate von der stoic-quotes.com API, bis eins gefunden wird,
+    das noch nicht gepostet wurde. Fällt auf die lokale Backup-Liste
+    zurück, falls die API nicht erreichbar ist."""
+
+    # Zuerst versuchen, per Batch-Abruf schnell ein unverbrauchtes Zitat zu finden
+    try:
+        batch = fetch_quote_batch_from_api()
+        random.shuffle(batch)
+        for quote in batch:
+            if quote["text"] not in posted_texts:
+                return quote
+    except requests.RequestException as e:
+        print(f"WARNUNG: Batch-Abruf von stoic-quotes.com fehlgeschlagen: {e}")
+
+    # Falls im Batch alles schon verbraucht war (oder Batch fehlschlug):
+    # einzeln weiterprobieren (die API liefert bei jedem Aufruf ein neues Zufalls-Zitat)
+    for attempt in range(MAX_FETCH_ATTEMPTS):
+        try:
+            quote = fetch_quote_from_api()
+            if quote["text"] not in posted_texts:
+                return quote
+        except requests.RequestException as e:
+            print(f"WARNUNG: API-Abruf fehlgeschlagen (Versuch {attempt + 1}): {e}")
+            time.sleep(2)
+
+    # Alle Zitate der API scheinen verbraucht -> Zyklus neu starten
+    print("Alle bekannten Stoiker-Zitate wurden bereits gepostet. Starte neuen Zyklus.")
+    posted_texts.clear()
+    try:
+        return fetch_quote_from_api()
+    except requests.RequestException:
+        pass
+
+    # Letzter Ausweg: lokale Backup-Zitate verwenden
+    print("WARNUNG: stoic-quotes.com nicht erreichbar. Nutze lokale Backup-Zitate.")
+    with open(FALLBACK_QUOTES_FILE, "r", encoding="utf-8") as f:
+        fallback_quotes = json.load(f)
+    unused_fallback = [q for q in fallback_quotes if q["text"] not in posted_texts]
+    return random.choice(unused_fallback or fallback_quotes)
 
 
 # ---------------------------------------------------------------------------
@@ -134,10 +203,10 @@ def generate_quote_image(quote: dict) -> Path:
 # erreichbar ist – Instagram benötigt zwingend eine öffentliche Bild-URL)
 # ---------------------------------------------------------------------------
 
-def commit_and_push_image(image_path: Path) -> str:
+def commit_and_push_files(image_path: Path) -> str:
     subprocess.run(["git", "config", "user.name", "instagram-auto-poster-bot"], check=True)
     subprocess.run(["git", "config", "user.email", "actions@github.com"], check=True)
-    subprocess.run(["git", "add", str(image_path)], check=True)
+    subprocess.run(["git", "add", str(image_path), str(POSTED_QUOTES_FILE)], check=True)
     subprocess.run(
         ["git", "commit", "-m", f"Automatischer Post: {image_path.name}"],
         check=True,
@@ -169,8 +238,8 @@ GRAPH_API_BASE = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
 
 def build_caption(quote: dict) -> str:
     hashtags = (
-        "#motivation #zitate #mindset #erfolg #selbstliebe "
-        "#persönlichkeitsentwicklung #inspiration #ziele"
+        "#stoicism #stoic #marcusaurelius #seneca #epictetus "
+        "#philosophy #wisdom #mindset #motivation #innerpeace"
     )
     return f"{quote['text']}\n— {quote.get('author', 'Unbekannt')}\n\n{hashtags}"
 
@@ -216,11 +285,20 @@ def main() -> None:
         )
         sys.exit(1)
 
-    quote = choose_quote()
+    posted_texts = load_posted_quotes()
+    print(f"Bereits geposteter Zitate: {len(posted_texts)}")
+
+    quote = choose_unused_quote(posted_texts)
     print(f"Ausgewähltes Zitat: {quote['text']} – {quote.get('author')}")
 
     image_path = generate_quote_image(quote)
-    image_url = commit_and_push_image(image_path)
+
+    # Zitat als "gepostet" vermerken, BEVOR wir committen, damit es
+    # dauerhaft im Repo festgehalten wird
+    posted_texts.add(quote["text"])
+    save_posted_quotes(posted_texts)
+
+    image_url = commit_and_push_files(image_path)
     caption = build_caption(quote)
 
     creation_id = create_media_container(ig_user_id, access_token, image_url, caption)
