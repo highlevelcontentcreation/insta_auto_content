@@ -203,15 +203,19 @@ def generate_quote_image(quote: dict) -> Path:
 # erreichbar ist – Instagram benötigt zwingend eine öffentliche Bild-URL)
 # ---------------------------------------------------------------------------
 
-def commit_and_push_files(image_path: Path) -> str:
+def git_commit_and_push(paths: list, message: str) -> None:
     subprocess.run(["git", "config", "user.name", "instagram-auto-poster-bot"], check=True)
     subprocess.run(["git", "config", "user.email", "actions@github.com"], check=True)
-    subprocess.run(["git", "add", str(image_path), str(POSTED_QUOTES_FILE)], check=True)
-    subprocess.run(
-        ["git", "commit", "-m", f"Automatischer Post: {image_path.name}"],
-        check=True,
-    )
+    subprocess.run(["git", "add", *[str(p) for p in paths]], check=True)
+    result = subprocess.run(["git", "commit", "-m", message], capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"Hinweis: git commit übersprungen (evtl. keine Änderungen): {result.stdout}{result.stderr}")
+        return
     subprocess.run(["git", "push"], check=True)
+
+
+def commit_and_push_image(image_path: Path) -> str:
+    git_commit_and_push([image_path], f"Automatischer Post: {image_path.name}")
 
     raw_base = os.environ.get("GITHUB_REPOSITORY_RAW_BASE")
     if not raw_base:
@@ -252,6 +256,8 @@ def create_media_container(ig_user_id: str, access_token: str, image_url: str, c
         "access_token": access_token,
     }
     response = requests.post(url, data=payload, timeout=30)
+    if not response.ok:
+        print(f"FEHLERDETAILS von Instagram: {response.text}")
     response.raise_for_status()
     creation_id = response.json()["id"]
     print(f"Media-Container erstellt: {creation_id}")
@@ -265,6 +271,8 @@ def publish_media(ig_user_id: str, access_token: str, creation_id: str) -> None:
         "access_token": access_token,
     }
     response = requests.post(url, data=payload, timeout=30)
+    if not response.ok:
+        print(f"FEHLERDETAILS von Instagram: {response.text}")
     response.raise_for_status()
     print(f"Post veröffentlicht! Antwort: {response.json()}")
 
@@ -292,17 +300,16 @@ def main() -> None:
     print(f"Ausgewähltes Zitat: {quote['text']} – {quote.get('author')}")
 
     image_path = generate_quote_image(quote)
-
-    # Zitat als "gepostet" vermerken, BEVOR wir committen, damit es
-    # dauerhaft im Repo festgehalten wird
-    posted_texts.add(quote["text"])
-    save_posted_quotes(posted_texts)
-
-    image_url = commit_and_push_files(image_path)
+    image_url = commit_and_push_image(image_path)
     caption = build_caption(quote)
 
     creation_id = create_media_container(ig_user_id, access_token, image_url, caption)
     publish_media(ig_user_id, access_token, creation_id)
+
+    # Erst NACH erfolgreichem Post das Zitat dauerhaft als "verwendet" vermerken
+    posted_texts.add(quote["text"])
+    save_posted_quotes(posted_texts)
+    git_commit_and_push([POSTED_QUOTES_FILE], f"Zitat als gepostet markiert: {quote.get('author')}")
 
 
 if __name__ == "__main__":
