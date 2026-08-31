@@ -101,8 +101,8 @@ in `.github/workflows/daily-post.yml` – kannst du beliebig anpassen).
 
 ## Wichtige Hinweise
 
+- **Zitat-Quelle:** Zitate kommen automatisch von der kostenlosen [stoic-quotes.com](https://stoic-quotes.com) API (Marcus Aurelius, Seneca, Epiktet u.a.). Jedes Zitat wird nur **einmal** gepostet – die Datei `posted_quotes.json` merkt sich alle bereits verwendeten Zitate. Ist die API mal nicht erreichbar, springt das Skript automatisch auf die lokale Backup-Liste `quotes.json` um.
 - **Token-Ablauf:** Alle 60 Tage muss das Access Token erneuert werden (Schritt 5 wiederholen und Secret aktualisieren), sonst schlägt der Post fehl.
 - **Rate Limits:** Meta erlaubt begrenzt viele Posts pro Tag – ein Post täglich ist unproblematisch.
-- **Zitate erweitern:** Öffne `quotes.json` und füge beliebig viele weitere Zitate hinzu.
 - **Design anpassen:** Farben, Schriftgrößen etc. lassen sich in `instagram_auto_poster.py` im Abschnitt "Konfiguration" anpassen.
-- **Kosten:** Die Instagram Graph API selbst ist kostenlos. GitHub Actions ist für private Repos mit diesem geringen Nutzungsumfang ebenfalls im kostenlosen Kontingent.
+- **Kosten:** Die Instagram Graph API und die stoic-quotes.com API sind kostenlos. GitHub Actions ist für dieses Repo ebenfalls im kostenlosen Kontingent.
