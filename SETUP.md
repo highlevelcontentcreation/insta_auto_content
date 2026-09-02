@@ -1,108 +1,72 @@
-# Setup-Anleitung: Automatisierter Instagram Motivations-Poster
+# Setup-Anleitung: KI-generierte türkische "Interessante Fakten"-Instagram-Seite
 
-Diese Anleitung führt dich einmalig durch die komplette Einrichtung.
-Danach postet das System jeden Tag automatisch ohne dein Zutun.
+Dieses Projekt postet täglich automatisch:
+- ein neues, KI-generiertes interessantes Fakten-Thema (Wissenschaft, Geschichte, Psychologie, Natur, Weltraum, Kultur, Kuriositäten)
+- als fotorealistisches KI-Bild mit kurzer türkischer Hook-Überschrift
+- inklusive türkischer Caption mit Hashtags
+
+**Komplett kostenlos:** Text via Google Gemini API (Free-Tier), Bild via Pollinations.ai (kein Key nötig).
 
 ---
 
-## 1. Instagram Business-Account einrichten
+## 1-7: Instagram/Facebook/GitHub Grundeinrichtung
 
-1. Öffne die Instagram-App → **Profil** → **Menü (☰)** → **Einstellungen und Privatsphäre**
-2. **Konto** → **Zu professionellem Konto wechseln**
-3. Wähle **Unternehmen** (nicht "Creator")
-4. Folge dem Dialog bis zum Ende
+Diese Schritte sind identisch zum vorherigen Projekt (Instagram Business-Account, Facebook-Seite verknüpfen, Meta Developer App, Instagram Graph API Produkt hinzufügen, Access Token generieren, IG_USER_ID finden, GitHub Repo erstellen). Falls du das bereits für einen anderen Account eingerichtet hast, kannst du App/Token wiederverwenden oder ein neues Set für diesen Account anlegen.
 
-## 2. Facebook-Seite verknüpfen
+**Kurzfassung (Details siehe ggf. vorherige Anleitung):**
+1. Instagram-Account → Professionelles Konto → Unternehmen
+2. Facebook-Seite erstellen & mit Instagram verknüpfen
+3. App auf developers.facebook.com erstellen (Anwendungsfall: Content-Management)
+4. Produkt "Instagram Graph API" hinzufügen, mit der Facebook-Seite verbinden
+5. Im Graph API Explorer ein User-Token generieren mit: `instagram_business_basic`, `instagram_business_content_publish`, `pages_show_list`, `pages_read_engagement`, `business_management`
+6. Kurzlebiges Token in ein langlebiges (60 Tage) umwandeln:
+   ```bash
+   curl -X GET "https://graph.facebook.com/v21.0/oauth/access_token?grant_type=fb_exchange_token&client_id=<APP_ID>&client_secret=<APP_SECRET>&fb_exchange_token=<KURZLEBIGES_TOKEN>"
+   ```
+7. IG_USER_ID ermitteln:
+   ```
+   https://graph.facebook.com/v21.0/me/accounts?access_token=<TOKEN>
+   https://graph.facebook.com/v21.0/<SEITEN_ID>?fields=instagram_business_account&access_token=<TOKEN>
+   ```
 
-1. Falls du noch keine Facebook-Seite hast: [facebook.com/pages/create](https://facebook.com/pages/create) → neue Seite anlegen (kostenlos, Name ist frei wählbar)
-2. In Instagram: **Einstellungen** → **Konto** → **Verlinkte Konten** → **Facebook** → deine Seite verknüpfen
+## 8. Kostenlosen Gemini API-Key erstellen
 
-## 3. Meta Developer Account & App erstellen
+1. Gehe zu [aistudio.google.com](https://aistudio.google.com) und logge dich mit einem Google-Konto ein
+2. Klicke auf **"Get API key"** (meist oben links oder im Menü)
+3. **"Create API key"** → neues Projekt wählen oder erstellen lassen
+4. Der generierte Key beginnt meist mit `AIza...` – kopiere ihn
 
-1. Gehe zu [developers.facebook.com](https://developers.facebook.com) und logge dich mit deinem Facebook-Account ein
-2. **Meine Apps** → **App erstellen**
-3. App-Typ: **Andere** → **Unternehmen**
-4. Namen vergeben (z. B. "Mein Insta Auto Poster") → App erstellen
+**Keine Kreditkarte, kein Google Cloud Billing nötig** für den Free-Tier (Flash-Modelle).
 
-## 4. Instagram Graph API Produkt hinzufügen
+## 9. Repository erstellen & Projektdateien hochladen
 
-1. In deiner neuen App: im linken Menü **Produkt hinzufügen** suchen
-2. **Instagram Graph API** hinzufügen (bzw. je nach Dashboard-Version "Instagram" → "Graph API einrichten")
-3. Verbinde im Dialog deine Facebook-Seite (aus Schritt 2) mit der App
+1. Neues (öffentliches – wichtig, damit `raw.githubusercontent.com` die Bilder ausliefern kann) GitHub-Repository erstellen
+2. Alle Dateien dieses Projekts in den **Root-Ordner** hochladen (inkl. `.github/workflows/daily-post.yml` – als eigene Datei mit exakt diesem Pfad anlegen, siehe Hinweis unten)
 
-## 5. Access Token generieren
+**Wichtig:** Der Ordner `.github/workflows/daily-post.yml` muss beim Hochladen über GitHub als **Dateiname mit Pfad** angelegt werden (Add file → Create new file → Dateiname: `.github/workflows/daily-post.yml`), da man Ordner nicht direkt hochladen kann.
 
-1. Gehe zum **Graph API Explorer**: [developers.facebook.com/tools/explorer](https://developers.facebook.com/tools/explorer)
-2. Oben rechts: wähle deine App aus
-3. **Berechtigungen hinzufügen**: mindestens
-   - `instagram_basic`
-   - `instagram_content_publish`
-   - `pages_show_list`
-   - `pages_read_engagement`
-4. Klicke **Access Token generieren** und logge dich ein, falls gefragt
-5. Du erhältst ein **kurzlebiges Token** (gültig ca. 1 Stunde) – das reicht noch nicht
+## 10. GitHub Secrets hinterlegen
 
-### Kurzlebiges Token in ein langlebiges umwandeln (60 Tage gültig)
+**Settings → Secrets and variables → Actions → New repository secret:**
 
-Führe folgenden Befehl aus (z. B. im Terminal, `curl` muss installiert sein), ersetze die Platzhalter:
+| Name | Wert |
+|---|---|
+| `IG_USER_ID` | deine Instagram Business Account ID |
+| `IG_ACCESS_TOKEN` | dein langlebiges Access Token |
+| `GEMINI_API_KEY` | dein Gemini API-Key aus Schritt 8 |
 
-```bash
-curl -X GET "https://graph.facebook.com/v21.0/oauth/access_token?grant_type=fb_exchange_token&client_id=<APP_ID>&client_secret=<APP_SECRET>&fb_exchange_token=<KURZLEBIGES_TOKEN>"
-```
+## 11. Testen
 
-- `APP_ID` und `APP_SECRET` findest du unter **App-Einstellungen** → **Grundlegendes**
-- Das Ergebnis enthält dein **langlebiges Access Token** (60 Tage gültig)
-
-> ⚠️ Nach 60 Tagen läuft das Token ab und muss erneuert werden (manuell mit demselben Befehl, oder du automatisierst das später zusätzlich).
-
-## 6. Deine Instagram Business Account ID (IG_USER_ID) finden
-
-Rufe im Browser folgende URL auf (mit deinem langlebigen Token):
-
-```
-https://graph.facebook.com/v21.0/me/accounts?access_token=<DEIN_TOKEN>
-```
-
-Das liefert deine verknüpfte Facebook-Seiten-ID. Rufe damit dann auf:
-
-```
-https://graph.facebook.com/v21.0/<SEITEN_ID>?fields=instagram_business_account&access_token=<DEIN_TOKEN>
-```
-
-Die zurückgegebene `id` ist deine **IG_USER_ID**.
-
-## 7. Projekt auf GitHub hochladen
-
-1. Erstelle einen kostenlosen Account auf [github.com](https://github.com), falls noch nicht vorhanden
-2. Erstelle ein neues **privates** Repository (z. B. `instagram-auto-poster`)
-3. Lade alle Dateien aus diesem Projekt hoch (per Weboberfläche "Upload files" oder per `git push`)
-
-## 8. Secrets in GitHub hinterlegen
-
-1. Im Repository: **Settings** → **Secrets and variables** → **Actions**
-2. **New repository secret** und folgende zwei Secrets anlegen:
-   - `IG_USER_ID` → deine Instagram Business Account ID aus Schritt 6
-   - `IG_ACCESS_TOKEN` → dein langlebiges Access Token aus Schritt 5
-
-> Der `GITHUB_TOKEN` wird automatisch von GitHub Actions bereitgestellt, den musst du nicht selbst anlegen.
-
-## 9. Testen
-
-1. Im Repository: Tab **Actions** → Workflow **"Täglicher Instagram-Post"** auswählen
-2. **Run workflow** klicken, um einen manuellen Testlauf zu starten
-3. Prüfe die Logs – bei Erfolg erscheint der Post kurz darauf auf deinem Instagram-Profil
-
-## 10. Fertig – läuft jetzt automatisch
-
-Der Workflow läuft ab jetzt jeden Tag automatisch um 09:00 UTC (Zeile `cron: "0 9 * * *"`
-in `.github/workflows/daily-post.yml` – kannst du beliebig anpassen).
+**Actions**-Tab → **"Täglicher Instagram-Post"** → **"Run workflow"**. Logs prüfen, bei Erfolg erscheint der Post kurz danach auf Instagram.
 
 ---
 
 ## Wichtige Hinweise
 
-- **Zitat-Quelle:** Zitate kommen automatisch von der kostenlosen [stoic-quotes.com](https://stoic-quotes.com) API (Marcus Aurelius, Seneca, Epiktet u.a.). Jedes Zitat wird nur **einmal** gepostet – die Datei `posted_quotes.json` merkt sich alle bereits verwendeten Zitate. Ist die API mal nicht erreichbar, springt das Skript automatisch auf die lokale Backup-Liste `quotes.json` um.
-- **Token-Ablauf:** Alle 60 Tage muss das Access Token erneuert werden (Schritt 5 wiederholen und Secret aktualisieren), sonst schlägt der Post fehl.
-- **Rate Limits:** Meta erlaubt begrenzt viele Posts pro Tag – ein Post täglich ist unproblematisch.
-- **Design anpassen:** Farben, Schriftgrößen etc. lassen sich in `instagram_auto_poster.py` im Abschnitt "Konfiguration" anpassen.
-- **Kosten:** Die Instagram Graph API und die stoic-quotes.com API sind kostenlos. GitHub Actions ist für dieses Repo ebenfalls im kostenlosen Kontingent.
+- **Token-Ablauf:** Access Token alle 60 Tage erneuern (Schritt 6), sonst schlägt der Post fehl.
+- **Themen-Wiederholung:** `posted_topics.json` merkt sich alle bereits verwendeten Themen und wird Gemini als Kontext mitgegeben, damit keine Wiederholungen entstehen. Das ist ein KI-basierter Best-Effort-Mechanismus (kein 100%-Garant wie bei exakten Zitaten), funktioniert aber in der Praxis gut.
+- **Pollinations.ai Zuverlässigkeit:** Kein SLA, kein Uptime-Versprechen. Schlägt ein Lauf mal fehl (z. B. Bild-API kurzzeitig nicht erreichbar), postet der nächste tägliche Lauf einfach normal weiter – kein manuelles Eingreifen nötig.
+- **Gemini Free-Tier Limits:** Bei 1 Post/Tag bist du weit von jedem Limit entfernt (Free-Tier erlaubt i.d.R. mehrere Anfragen pro Minute).
+- **Bildstil anpassen:** Der Bild-Prompt wird von Gemini automatisch generiert. Willst du einen bestimmten visuellen Stil erzwingen (z. B. "immer warme Farbtöne"), ergänze das in `build_gemini_prompt()` in `instagram_auto_poster.py`.
+- **Hashtags/Caption-Stil anpassen:** Ebenfalls in `build_gemini_prompt()` anpassbar.
+- **Kosten:** 0 € – Instagram Graph API, Gemini Free-Tier und Pollinations sind alle kostenlos nutzbar.

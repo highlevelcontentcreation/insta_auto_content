@@ -2,13 +2,11 @@ name: Täglicher Instagram-Post
 
 on:
   schedule:
-    # Läuft jeden Tag um 09:00 UTC (= 10:00 bzw. 11:00 Uhr deutscher Zeit,
-    # je nach Sommer-/Winterzeit). Zeit nach Wunsch anpassen.
     - cron: "0 9 * * *"
-  workflow_dispatch: {}  # erlaubt manuelles Auslösen zum Testen
+  workflow_dispatch: {}
 
 permissions:
-  contents: write  # notwendig, damit der Bot das generierte Bild committen darf
+  contents: write
 
 jobs:
   post-to-instagram:
@@ -31,6 +29,7 @@ jobs:
         env:
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_REPOSITORY_RAW_BASE: https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python instagram_auto_poster.py
