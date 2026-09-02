@@ -225,8 +225,11 @@ def create_post_image(image_bytes: bytes, hook_text: str) -> Path:
     img = Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
 
     draw = ImageDraw.Draw(img)
-    max_width = int(IMAGE_SIZE[0] * 0.86)
-    max_height = int(IMAGE_SIZE[1] * 0.32)
+    # Instagram schneidet in der Profil-Übersicht (Grid) etwas vom Bildrand ab
+    # (zoomt leicht rein) -> deutlich mehr Sicherheitsabstand einplanen als
+    # für die reine Bildgröße nötig wäre.
+    max_width = int(IMAGE_SIZE[0] * 0.72)
+    max_height = int(IMAGE_SIZE[1] * 0.30)
     font, lines, line_height = _fit_text(draw, hook_text, max_width, max_height)
 
     total_text_height = len(lines) * line_height
