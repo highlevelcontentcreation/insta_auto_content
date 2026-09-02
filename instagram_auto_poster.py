@@ -87,7 +87,17 @@ def save_posted_topics(topics: list) -> None:
 def build_gemini_prompt(recent_topics: list) -> str:
     avoid_list = ", ".join(recent_topics[-MAX_POSTED_TOPICS_IN_PROMPT:]) or "(noch keine)"
     return f"""Sen viral bir Instagram "ilginç bilgiler" sayfası için içerik üretiyorsun.
-Konu havuzu: bilim, tarih, psikoloji, uzay, doğa, teknoloji, kültür, ilginç gerçekler.
+Sayfanın tarzı: Almanya'da popüler olan "Fakten-Seite" tarzı - geniş, çeşitli
+ve şaşırtıcı/duygusal bilgiler paylaşan bir sayfa (dar bir niş DEĞİL).
+
+Ana konu havuzu (her seferinde bunlardan rastgele bir kategori seç):
+- İlginç gerçekler & bilim (kimya, fizik, koku bilimi, malzemeler, uzay/evren)
+- İnsan vücudu & genetik (nadir özellikler: 6 parmak, heterokromi/farklı renkli gözler, yeşil gözler, vücuttaki ilginç değişiklikler)
+- Tarihi / gerçek hayat hikayeleri (ilham verici olaylar, kahramanlıklar, dürüstlük hikayeleri, dünya seyahatleri)
+- Doğa & çevre (ateş böcekleri, hayvanlar, doğa olayları)
+- Psikoloji & bilinç (rüyalar, algı)
+- Eskiden vs şimdi karşılaştırmaları, teknolojik/toplumsal değişim
+- Duygusal / "iyi kalpli insan" tarzı ilham verici kısa hikayeler
 
 Daha önce kullanılan konular (bunları TEKRARLAMA, tamamen farklı ve yeni bir konu seç):
 {avoid_list}
@@ -96,13 +106,13 @@ Görev: SADECE aşağıdaki alanları içeren geçerli bir JSON nesnesi döndür
 
 {{
   "topic": "Konunun kısa İngilizce özeti (tekrar kontrolü için, örn. 'octopus three hearts')",
-  "hook": "Görselin üzerine yazılacak, MAKSİMUM 8 kelimelik çok kısa, merak uyandırıcı Türkçe başlık",
-  "caption": "Instagram gönderisi için 2-3 cümlelik ilginç, akıcı Türkçe açıklama metni, sonuna 5-8 alakalı Türkçe/İngilizce hashtag ekle",
+  "hook": "Görselin üzerine yazılacak başlık: KISA ama TAM ANLAŞILIR, dilbilgisi açısından doğru, eksiksiz bir Türkçe cümle veya cümlecik (max 10 kelime). Okuyan kişi başka bir bağlam olmadan sadece bu başlığı okuyarak konuyu net şekilde anlamalı. Muğlak, yarım veya kafa karıştırıcı ifadelerden KAÇIN.",
+  "caption": "Instagram gönderisi için 2-3 cümlelik ilginç, akıcı ve anlaşılır Türkçe açıklama metni, sonuna 5-8 alakalı Türkçe/İngilizce hashtag ekle",
   "image_prompt": "Detailed English prompt for a photorealistic AI image illustrating this fact, cinematic lighting, no text or letters in the image, high quality photography style"
 }}
 
 Kurallar:
-- "hook" çok kısa ve dikkat çekici olmalı (max 8 kelime, başlık gibi)
+- "hook" başlığı tek başına okunduğunda bile HERKESİN kolayca anlayacağı netlikte olmalı
 - Gerçek, doğrulanabilir ve ilginç bir bilgi seç
 - JSON dışında hiçbir açıklama, markdown veya kod bloğu ekleme"""
 
