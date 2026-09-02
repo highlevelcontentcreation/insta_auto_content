@@ -132,7 +132,7 @@ def call_gemini(prompt: str) -> dict:
     response = requests.post(
         f"{GEMINI_API_URL}?key={api_key}",
         json=payload,
-        timeout=30,
+        timeout=120,
     )
     if not response.ok:
         print(f"FEHLERDETAILS von Gemini: {response.text}")
@@ -304,7 +304,7 @@ GRAPH_API_BASE = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
 def create_media_container(ig_user_id: str, access_token: str, image_url: str, caption: str) -> str:
     url = f"{GRAPH_API_BASE}/{ig_user_id}/media"
     payload = {"image_url": image_url, "caption": caption, "access_token": access_token}
-    response = requests.post(url, data=payload, timeout=30)
+    response = requests.post(url, data=payload, timeout=120)
     if not response.ok:
         print(f"FEHLERDETAILS von Instagram: {response.text}")
     response.raise_for_status()
@@ -316,7 +316,7 @@ def create_media_container(ig_user_id: str, access_token: str, image_url: str, c
 def publish_media(ig_user_id: str, access_token: str, creation_id: str) -> None:
     url = f"{GRAPH_API_BASE}/{ig_user_id}/media_publish"
     payload = {"creation_id": creation_id, "access_token": access_token}
-    response = requests.post(url, data=payload, timeout=30)
+    response = requests.post(url, data=payload, timeout=120)
     if not response.ok:
         print(f"FEHLERDETAILS von Instagram: {response.text}")
     response.raise_for_status()
