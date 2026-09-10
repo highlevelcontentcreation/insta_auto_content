@@ -117,7 +117,7 @@ Kurallar:
 - JSON dışında hiçbir açıklama, markdown veya kod bloğu ekleme"""
 
 
-def call_gemini(prompt: str) -> dict:
+def call_gemini(prompt: str, max_retries: int = 3) -> dict:
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         raise RuntimeError("Umgebungsvariable GEMINI_API_KEY fehlt.")
@@ -129,26 +129,37 @@ def call_gemini(prompt: str) -> dict:
             "temperature": 1.1,
         },
     }
-    response = requests.post(
-        f"{GEMINI_API_URL}?key={api_key}",
-        json=payload,
-        timeout=120,
-    )
-    if not response.ok:
-        print(f"FEHLERDETAILS von Gemini: {response.text}")
-    response.raise_for_status()
 
-    data = response.json()
-    raw_text = data["candidates"][0]["content"]["parts"][0]["text"]
+    last_error = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            response = requests.post(
+                f"{GEMINI_API_URL}?key={api_key}",
+                json=payload,
+                timeout=90,
+            )
+            if not response.ok:
+                print(f"FEHLERDETAILS von Gemini (Versuch {attempt}): {response.text}")
+            response.raise_for_status()
 
-    # Defensive: falls das Modell trotz Anweisung Markdown-Codeblöcke liefert
-    cleaned = raw_text.strip()
-    if cleaned.startswith("```"):
-        cleaned = cleaned.strip("`")
-        cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned
-        cleaned = cleaned.rsplit("```", 1)[0]
+            data = response.json()
+            raw_text = data["candidates"][0]["content"]["parts"][0]["text"]
 
-    return json.loads(cleaned)
+            cleaned = raw_text.strip()
+            if cleaned.startswith("```"):
+                cleaned = cleaned.strip("`")
+                cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned
+                cleaned = cleaned.rsplit("```", 1)[0]
+
+            return json.loads(cleaned)
+
+        except (requests.exceptions.RequestException, KeyError, json.JSONDecodeError, IndexError) as e:
+            last_error = e
+            print(f"WARNUNG: Gemini-Aufruf fehlgeschlagen (Versuch {attempt}/{max_retries}): {e}")
+            if attempt < max_retries:
+                time.sleep(5 * attempt)  # steigende Wartezeit zwischen Versuchen
+
+    raise RuntimeError(f"Gemini-API nach {max_retries} Versuchen weiterhin nicht erreichbar: {last_error}")
 
 
 def generate_content(posted_topics: list) -> dict:
@@ -304,7 +315,7 @@ GRAPH_API_BASE = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
 def create_media_container(ig_user_id: str, access_token: str, image_url: str, caption: str) -> str:
     url = f"{GRAPH_API_BASE}/{ig_user_id}/media"
     payload = {"image_url": image_url, "caption": caption, "access_token": access_token}
-    response = requests.post(url, data=payload, timeout=120)
+    response = requests.post(url, data=payload, timeout=30)
     if not response.ok:
         print(f"FEHLERDETAILS von Instagram: {response.text}")
     response.raise_for_status()
@@ -316,7 +327,7 @@ def create_media_container(ig_user_id: str, access_token: str, image_url: str, c
 def publish_media(ig_user_id: str, access_token: str, creation_id: str) -> None:
     url = f"{GRAPH_API_BASE}/{ig_user_id}/media_publish"
     payload = {"creation_id": creation_id, "access_token": access_token}
-    response = requests.post(url, data=payload, timeout=120)
+    response = requests.post(url, data=payload, timeout=30)
     if not response.ok:
         print(f"FEHLERDETAILS von Instagram: {response.text}")
     response.raise_for_status()
